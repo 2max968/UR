@@ -52,13 +52,13 @@ public class RobotArm : MonoBehaviour
         {
             var tcpOffset = new Vector3((float)urListener.CartesianInfo.TCPOffsetX,
                 (float)urListener.CartesianInfo.TCPOffsetY,
-                (float)urListener.CartesianInfo.TCPOffsetZ);
-            var tcpRotation = Quaternion.Euler((float)urListener.CartesianInfo.TCPOffsetRx,
-                (float)urListener.CartesianInfo.TCPOffsetRy,
-                (float)urListener.CartesianInfo.TCPOffsetRz);
-            TCP.localPosition = tcpOffset;
+                -(float)urListener.CartesianInfo.TCPOffsetZ);
+            var tcpRotation = Quaternion.Euler((float)urListener.CartesianInfo.TCPOffsetRx * 180f / Mathf.PI,
+                (float)urListener.CartesianInfo.TCPOffsetRy * 180f / Mathf.PI,
+                (float)urListener.CartesianInfo.TCPOffsetRz * 180f / Mathf.PI);
+            TCP.localPosition = tcpOffset * 1000;
             TCP.localRotation = tcpRotation;
-            TCPPosition = new Vector3(-(float)urListener.CartesianInfo.Y, (float)urListener.CartesianInfo.Z,
+            TCPPosition = new Vector3((float)urListener.CartesianInfo.Y, -(float)urListener.CartesianInfo.Z,
                 (float)urListener.CartesianInfo.X);
             TCPRotation = Quaternion.Euler((float)urListener.CartesianInfo.Rx, (float)urListener.CartesianInfo.Ry,
                 (float)urListener.CartesianInfo.Rz);
@@ -82,7 +82,7 @@ public class RobotArm : MonoBehaviour
             ipInput = GUILayout.TextField(ipInput);
             if (GUILayout.Button("Connect"))
             {
-                urListener.Connect(ipInput);
+                urListener.Connect(ipInput, false);
             }
 
             GUILayout.EndHorizontal();
