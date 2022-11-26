@@ -1,0 +1,39 @@
+G28 ; Home robot
+G90 ; Absolute positioning
+G1 X100 Y100 Z0 F3000 E0
+G91 ; Relative positioning
+
+ ; First Layer
+G1 X100 E5
+G1 Y100 E5
+G1 X-100 E5
+G1 Y-100 E5
+G1 Z1 E0
+
+; Second Layer
+G1 X100 E5
+G1 Y100 E5
+G1 X-100 E5
+G1 Y-100 E5
+G1 Z1 E0
+
+; Third Layer
+G1 X100 E5
+G1 Y100 E5
+G1 X-100 E5
+G1 Y-100 E5
+G1 Z1 E0
+
+; Fifth Layer
+G1 X100 E5
+G1 Y100 E5
+G1 X-100 E5
+G1 Y-100 E5
+G1 Z1 E0
+
+; Sixth Layer
+G1 X100 E5
+G1 Y100 E5
+G1 X-100 E5
+G1 Y-100 E5
+G1 Z1 E0
