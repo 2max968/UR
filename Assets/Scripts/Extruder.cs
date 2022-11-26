@@ -7,7 +7,10 @@ public class Extruder : MonoBehaviour
 {
     public RobotArm Robot;
     private List<Vector3> trace;
-    private LineRenderer line;
+    //private LineRenderer line;
+    private MeshRenderer wurstR;
+    private MeshFilter wurstF;
+    private Transform trailObj;
     private Vector3 tmpPosition = new Vector3(float.NaN, float.NaN, float.NaN);
 
     private bool extruding = false;
@@ -16,7 +19,10 @@ public class Extruder : MonoBehaviour
     void Start()
     {
         trace = new List<Vector3>();
-        line = GetComponentInChildren<LineRenderer>();
+        trailObj = transform.Find("Trail");
+        wurstR = trailObj.GetComponent<MeshRenderer>();
+        wurstF = trailObj.GetComponent<MeshFilter>();
+        //line = GetComponentInChildren<LineRenderer>();
     }
 
     // Update is called once per frame
@@ -38,14 +44,17 @@ public class Extruder : MonoBehaviour
                 trace.Add(transform.position);
                 if (trace.Count >= 2)
                 {
-                    line.enabled = true;
-                    line.positionCount = trace.Count;
-                    for (int i = 0; i < trace.Count; i++)
-                        line.SetPosition(i, trace[i]);
+                    wurstR.enabled = true;
+                    wurstF.mesh = Util.CreateWurst(trace, 0.01f);
+                    //line.enabled = true;
+                    //line.positionCount = trace.Count;
+                    //for (int i = 0; i < trace.Count; i++)
+                    //    line.SetPosition(i, trace[i]);
                 }
                 else
                 {
-                    line.enabled = false;
+                    wurstR.enabled = false;
+                    //line.enabled = false;
                 }
             }
         }
@@ -56,16 +65,23 @@ public class Extruder : MonoBehaviour
                 trace.Add(transform.position);
                 var empty = new GameObject();
                 empty.transform.name = "Extruded Chunk";
-                var lr = empty.AddComponent<LineRenderer>();
+                /*var lr = empty.AddComponent<LineRenderer>();
                 var chunk = empty.AddComponent<ExtrudedChunk>();
                 lr.material = line.material;
                 lr.widthMultiplier = line.widthMultiplier;
-                chunk.Trace = trace.ToArray();
+                chunk.Trace = trace.ToArray();*/
+                empty.AddComponent<MeshRenderer>().material = wurstR.material;
+                empty.AddComponent<MeshFilter>().mesh = Util.CreateWurst(trace, 0.01f);
             }
-            line.enabled = false;
+            //line.enabled = false;
+            wurstR.enabled = false;
             trace.Clear();
             extruding = false;
         }
         tmpPosition = transform.position;
+
+        trailObj.position = new Vector3(0, 0, 0);
+        trailObj.rotation = Quaternion.identity;
+        //trailObj.localScale = trailObj.parent.lossyScale.normalize;
     }
 }
