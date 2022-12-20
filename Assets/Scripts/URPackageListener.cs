@@ -99,6 +99,14 @@ namespace Assets.Scripts
                 catch (System.IO.IOException) { }
             }
         }
+
+        public void SendCommand(string command)
+        {
+            if (stream == null || client == null || !client.Connected)
+                return;
+            byte[] data = Encoding.UTF8.GetBytes(command + "\n");
+            stream.Write(data, 0, data.Length);
+        }
     }
 
     public struct RobotStatePackage_RobotModeData

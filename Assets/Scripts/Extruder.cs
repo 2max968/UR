@@ -45,7 +45,7 @@ public class Extruder : MonoBehaviour
                 if (trace.Count >= 2)
                 {
                     wurstR.enabled = true;
-                    wurstF.mesh = Util.CreateWurst(trace, 0.01f);
+                    wurstF.mesh = Util.CreateWurst(trace, 0.001f);
                     //line.enabled = true;
                     //line.positionCount = trace.Count;
                     //for (int i = 0; i < trace.Count; i++)
@@ -71,7 +71,7 @@ public class Extruder : MonoBehaviour
                 lr.widthMultiplier = line.widthMultiplier;
                 chunk.Trace = trace.ToArray();*/
                 empty.AddComponent<MeshRenderer>().material = wurstR.material;
-                empty.AddComponent<MeshFilter>().mesh = Util.CreateWurst(trace, 0.01f);
+                empty.AddComponent<MeshFilter>().mesh = Util.CreateWurst(trace, 0.001f);
             }
             //line.enabled = false;
             wurstR.enabled = false;
