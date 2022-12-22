@@ -24,13 +24,15 @@ namespace Assets.Scripts
         public RobotStatePackage_JointData JointData { get; private set; }
         public RobotStatePackage_CartesianInfo CartesianInfo { get; private set; }
         public RobotStatePackage_MasterboardData MasterboardData { get; private set; }
+        public RealtimePackage RealtimePackage { get; private set; }
 
         public bool Connected => client != null && client.Connected;
+        public bool IsRealtime { get; private set; }
 
         public void Connect(string address, bool realtime = false)
         {
+            IsRealtime = realtime;
             var ip = IPAddress.Parse(address);
-            var remote = new IPEndPoint(ip, realtime ? 30003 : 30001);
             client = new TcpClient();
             client.BeginConnect(ip, realtime ? 30003 : 30001, connectCallback, null);
         }
@@ -60,39 +62,56 @@ namespace Assets.Scripts
             {
                 try
                 {
-                    stream.Read(packageHeadBuffer, 0, 5);
-                    int packageLength = URUtil.ArrayToInt32(packageHeadBuffer, 0);
-                    byte robotMessageType = packageHeadBuffer[4];
-
-                    byte[] packageBuffer = new byte[packageLength - 5];
-                    stream.Read(packageBuffer, 0, packageBuffer.Length);
-
-                    int pointer = 0;
-                    // MESSAGE_TYPE_ROBOT_STATE
-                    if (robotMessageType == 16)
+                    if (IsRealtime)
                     {
-                        while (pointer < packageBuffer.Length)
+                        stream.Read(packageHeadBuffer, 0, 4);
+                        int packageLength = URUtil.ArrayToInt32(packageHeadBuffer, 0);
+                        byte[] packageBuffer = new byte[packageLength - 4];
+                        stream.Read(packageBuffer, 0, packageBuffer.Length);
+                        RealtimePackage = URUtil.ArrayToStruct<RealtimePackage>(packageBuffer, 0);
+                    }
+                    else
+                    {
+                        stream.Read(packageHeadBuffer, 0, 5);
+                        int packageLength = URUtil.ArrayToInt32(packageHeadBuffer, 0);
+                        byte robotMessageType = packageHeadBuffer[4];
+
+                        byte[] packageBuffer = new byte[packageLength - 5];
+                        stream.Read(packageBuffer, 0, packageBuffer.Length);
+
+                        int pointer = 0;
+                        // MESSAGE_TYPE_ROBOT_STATE
+                        if (robotMessageType == 16)
                         {
-                            int subPackageLength = URUtil.ArrayToInt32(packageBuffer, pointer);
-                            byte subPackageType = packageBuffer[pointer + 4];
-                            switch (subPackageType)
+                            while (pointer < packageBuffer.Length)
                             {
-                                case 0: // Robot Mode Data
-                                    RobotModeData = URUtil.ArrayToStruct<RobotStatePackage_RobotModeData>(packageBuffer, pointer + 5);
-                                    break;
-                                case 1: // JointData
-                                    JointData = URUtil.ArrayToStruct<RobotStatePackage_JointData>(packageBuffer, pointer + 5);
-                                    break;
-                                case 4: // Cartesian Info
-                                    CartesianInfo = URUtil.ArrayToStruct<RobotStatePackage_CartesianInfo>(packageBuffer, pointer + 5);
-                                    break;
-                                case 3: // Masterboard data
-                                    MasterboardData =
-                                        URUtil.ArrayToStruct<RobotStatePackage_MasterboardData>(packageBuffer,
+                                int subPackageLength = URUtil.ArrayToInt32(packageBuffer, pointer);
+                                byte subPackageType = packageBuffer[pointer + 4];
+                                switch (subPackageType)
+                                {
+                                    case 0: // Robot Mode Data
+                                        RobotModeData =
+                                            URUtil.ArrayToStruct<RobotStatePackage_RobotModeData>(packageBuffer,
+                                                pointer + 5);
+                                        break;
+                                    case 1: // JointData
+                                        JointData = URUtil.ArrayToStruct<RobotStatePackage_JointData>(packageBuffer,
                                             pointer + 5);
-                                    break;
+                                        break;
+                                    case 4: // Cartesian Info
+                                        CartesianInfo =
+                                            URUtil.ArrayToStruct<RobotStatePackage_CartesianInfo>(packageBuffer,
+                                                pointer + 5);
+                                        break;
+                                    case 3: // Masterboard data
+                                        MasterboardData =
+                                            URUtil.ArrayToStruct<RobotStatePackage_MasterboardData>(packageBuffer,
+                                                pointer + 5);
+                                        break;
+                                }
+
+                                pointer += subPackageLength;
                             }
-                            pointer += subPackageLength;
                         }
                     }
                 }
@@ -221,5 +240,48 @@ namespace Assets.Scripts
         ProtectiveStop = 3,
         Reduced = 2,
         Normal = 1
+    }
+    
+    public struct RealtimePackage
+    {
+        public NetworkDouble Time;
+        public NetworkDouble6 QTarget;
+        public NetworkDouble6 QdTarget;
+        public NetworkDouble6 QddTarget;
+        public NetworkDouble6 ITarget;
+        public NetworkDouble6 MTarget;
+        public NetworkDouble6 QActual;
+        public NetworkDouble6 QdActual;
+        public NetworkDouble6 IActual;
+        public NetworkDouble6 IControl;
+        public NetworkDouble6 ToolVectorActual;
+        public NetworkDouble6 TcpSpeedActual;
+        public NetworkDouble6 TcpForce;
+        public NetworkDouble6 ToolVectorTarget;
+        public NetworkDouble6 TcpSpeedTarget;
+        public NetworkInt64 DigitalInputBits;
+        public NetworkInt64 MotorTemperatures;
+        public NetworkDouble ControllerTimer;
+        public NetworkDouble TestValue;
+        public NetworkDouble RobotMode;
+        public NetworkDouble6 JointModes;
+        public NetworkDouble SafetyMode;
+        public NetworkDouble6 Unused01;
+        public NetworkDouble ToolAccelerometerValuesX;
+        public NetworkDouble ToolAccelerometerValuesY;
+        public NetworkDouble ToolAccelerometerValuesZ;
+        public NetworkDouble6 Unused02;
+        public NetworkDouble SpeedScaling;
+        public NetworkDouble LinearMomentumNorm;
+        public NetworkDouble Unused03;
+        public NetworkDouble Unused04;
+        public NetworkDouble VMain;
+        public NetworkDouble VRobot;
+        public NetworkDouble IRobot;
+        public NetworkDouble6 VActual;
+        public NetworkDouble DigitalOutputs;
+        public NetworkDouble ProgramState;
+        public NetworkDouble ElbowPosition;
+        public NetworkDouble ElbowVelocity;
     }
 }

@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using Assets.Scripts;
 using UnityEngine;
@@ -23,6 +25,12 @@ public class RobotArm : MonoBehaviour
     public Vector3 TCPPosition;
     public Quaternion TCPRotation;
     public bool[] Outputs;
+
+    public Matrix4x4 Robot2Unity = new Matrix4x4(
+        new Vector4(1, 0, 0, 0),
+        new Vector4(0, 0, 1, 0),
+        new Vector4(0, 1, 0, 0),
+        new Vector4(0, 0, 0, 1));
 
     // Start is called before the first frame update
     void Start()
@@ -52,14 +60,28 @@ public class RobotArm : MonoBehaviour
         }
         if(urListener != null && urListener.Connected)
         {
-            var tcpOffset = new Vector3((float)urListener.CartesianInfo.TCPOffsetX,
+            /*var tcpOffset = new Vector3((float)urListener.CartesianInfo.TCPOffsetX,
                 (float)urListener.CartesianInfo.TCPOffsetY,
                 -(float)urListener.CartesianInfo.TCPOffsetZ);
             var tcpRotation = Quaternion.Euler((float)urListener.CartesianInfo.TCPOffsetRx * 180f / Mathf.PI,
                 (float)urListener.CartesianInfo.TCPOffsetRy * 180f / Mathf.PI,
                 (float)urListener.CartesianInfo.TCPOffsetRz * 180f / Mathf.PI);
             TCP.localPosition = tcpOffset * 1000;
-            TCP.localRotation = tcpRotation;
+            TCP.localRotation = tcpRotation;*/
+            Vector4 cartPosition = Robot2Unity * new Vector4((float)urListener.CartesianInfo.X, 
+                (float)urListener.CartesianInfo.Y,
+                (float)urListener.CartesianInfo.Z, 1);
+            Quaternion cartRotation = Quaternion.Euler(new Vector3(
+                (float)urListener.CartesianInfo.Rx * 180f / Mathf.PI,
+                (float)urListener.CartesianInfo.Ry * 180f / Mathf.PI,
+                (float)urListener.CartesianInfo.Rz * 180f / Mathf.PI));
+            var rotMat = transform.localToWorldMatrix;
+            rotMat.SetColumn(3, new(0, 0, 0, 1));
+            var cartForward = rotMat * (cartRotation * Vector3.forward);
+            var cartUp = rotMat * (cartRotation * Vector3.up);
+            TCP.position =  transform.localToWorldMatrix * cartPosition;
+            TCP.rotation = cartRotation;
+            
             TCPPosition = new Vector3((float)urListener.CartesianInfo.Y, -(float)urListener.CartesianInfo.Z,
                 (float)urListener.CartesianInfo.X);
             TCPRotation = Quaternion.Euler((float)urListener.CartesianInfo.Rx, (float)urListener.CartesianInfo.Ry,
@@ -98,8 +120,12 @@ public class RobotArm : MonoBehaviour
             
             if(GUILayout.Button("Home"))
             {
-                string cmd = "def myProg()\nmovej([0,1.57,-1.57,3.14,-1.57,1.57], a=1.4, v=1.05, t=0, r=0)\nmovej([1.57,1.57,-1.57,3.14,-1.57,1.57], a=1.4, v=1.05, t=0, r=0)\nend";
-                urListener.SendCommand(cmd);
+                var bedTransform = PrintBed.localToWorldMatrix;
+                Vector3 homePoint = bedTransform.GetColumn(3);
+                Vector3 homeDown = bedTransform * Vector3.down;
+                var homePointRobot = Robot2Unity.inverse * new Vector4(homePoint.x, homePoint.y, homePoint.z, 1);
+                string cmd = $"movej(p[{homePointRobot.x.ToString(CultureInfo.InvariantCulture)}, {homePointRobot.y.ToString(CultureInfo.InvariantCulture)}, {homePointRobot.z.ToString(CultureInfo.InvariantCulture)}, 0, 0, 0])";
+                SendProgram(new []{cmd}, "home");
             }
             
             if(GUILayout.Button("Move Test"))
@@ -143,9 +169,9 @@ public class RobotArm : MonoBehaviour
         }
     }
     
-    public void SendProgram(IEnumerable<string> program)
+    public void SendProgram(IEnumerable<string> program, string programName = "program")
     {
-        var list = Enumerable.Concat(Enumerable.Concat(Enumerable.Repeat("def program():", 1), program), Enumerable.Repeat("end", 1));
+        var list = Enumerable.Concat(Enumerable.Concat(Enumerable.Repeat($"def {programName}():", 1), program), Enumerable.Repeat("end", 1));
         urListener.SendCommand(string.Join('\n', list));
     }
 
