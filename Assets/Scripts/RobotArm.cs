@@ -124,20 +124,28 @@ public class RobotArm : MonoBehaviour
                 Vector3 homePoint = bedTransform.GetColumn(3);
                 Vector3 homeDown = bedTransform * Vector3.down;
                 var homePointRobot = Robot2Unity.inverse * new Vector4(homePoint.x, homePoint.y, homePoint.z, 1);
-                string cmd = $"movej(p[{homePointRobot.x.ToString(CultureInfo.InvariantCulture)}, {homePointRobot.y.ToString(CultureInfo.InvariantCulture)}, {homePointRobot.z.ToString(CultureInfo.InvariantCulture)}, 0, 0, 0])";
+                string cmd = $"movej(p[{homePointRobot.x.ToString(CultureInfo.InvariantCulture)}, {homePointRobot.y.ToString(CultureInfo.InvariantCulture)}, {homePointRobot.z.ToString(CultureInfo.InvariantCulture)}, 3.14145, 0, 0])";
                 SendProgram(new []{cmd}, "home");
             }
             
             if(GUILayout.Button("Move Test"))
             {
-                var points = new[]
+                var bedTransform = PrintBed.localToWorldMatrix;
+                var points = new Vector3[]
                 {
-                    new Vector3(0,0,0),
-                    new Vector3(0,0,0.1f),
-                    new Vector3(0, 0.1f,0.1f)
+                    new(0, 0, 0.2f),
+                    new(0.2f, 0.2f,0.02f),
+                    new(-0.2f,0.2f,0.02f),
+                    new(-0.2f,-0.2f,0.02f),
+                    new(0.2f,-0.2f,0.02f),
+                    new(0.2f, 0.2f,0.02f),
+                    new(0, 0, 0.2f)
                 };
-                var program = CreatePath(PrintBed.localToWorldMatrix, points);
-                SendProgram(program);
+                var bedTransformRobot = Robot2Unity.inverse * bedTransform;
+                var program = CreatePath(bedTransformRobot * Robot2Unity.inverse, points).ToList();
+                program.Insert(2, "set_digital_out(0,True)");
+                program.Insert(8, "set_digital_out(0,False)");
+                SendProgram(program, "move_test");
             }
 
             if (GUILayout.Button("Blink"))
@@ -177,9 +185,18 @@ public class RobotArm : MonoBehaviour
 
     public static string[] CreatePath(Matrix4x4 transform, IEnumerable<Vector3> points, float v = 0.3f, float r = 0.02f)
     {
-        string commandl = $"movel([{{0}}, {{1}}, {{2}}, {{3}}, {{4}}, {{5}}], a=1.4, v={v}, t=0, r={r})";
+        string commandl = $"movel(p[{{0}}, {{1}}, {{2}}, {{3}}, {{4}}, {{5}}], a=1.4, v={v.ToString(CultureInfo.InvariantCulture)}, t=0, r={r.ToString(CultureInfo.InvariantCulture)})";
+        string command2 = $"movej(p[{{0}}, {{1}}, {{2}}, {{3}}, {{4}}, {{5}}])";
         var transformedPoints = points.Select(p=>transform.MultiplyPoint(p));
-        return transformedPoints.Select(p => string.Format(commandl, p.x, p.y, p.z, 0, Math.PI, 0)).ToArray();
+        var commands = transformedPoints.Select(p => string.Format(CultureInfo.InvariantCulture, commandl, p.x, p.y, p.z, Math.PI, 0, 0)).ToArray();
+        if (commands.Length >= 1)
+        {
+            var first = transformedPoints.First();
+            commands[0] = string.Format(CultureInfo.InvariantCulture, command2, first.x,
+                first.y, first.z, Math.PI, 0, 0);
+        }
+
+        return commands;
     }
 }
 
