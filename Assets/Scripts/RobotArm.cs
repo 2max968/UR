@@ -26,7 +26,9 @@ public class RobotArm : MonoBehaviour
     public Quaternion TCPRotation;
     public bool[] Outputs;
 
-    public Matrix4x4 Robot2Unity = new Matrix4x4(
+    public TextAsset GCode;
+
+    public static readonly Matrix4x4 Robot2Unity = new Matrix4x4(
         new Vector4(1, 0, 0, 0),
         new Vector4(0, 0, 1, 0),
         new Vector4(0, 1, 0, 0),
@@ -130,21 +132,19 @@ public class RobotArm : MonoBehaviour
             
             if(GUILayout.Button("Move Test"))
             {
-                var bedTransform = PrintBed.localToWorldMatrix;
                 var points = new Vector3[]
                 {
-                    new(0, 0, 0.2f),
-                    new(0.2f, 0.2f,0.02f),
-                    new(-0.2f,0.2f,0.02f),
-                    new(-0.2f,-0.2f,0.02f),
-                    new(0.2f,-0.2f,0.02f),
-                    new(0.2f, 0.2f,0.02f),
-                    new(0, 0, 0.2f)
+                    new(0, 0, 0.05f),
+                    new(0.1f, 0.1f,0.001f),
+                    new(float.NaN, 1,1),
+                    new(-0.1f,0.1f,0.001f),
+                    new(-0.1f,-0.1f,0.001f),
+                    new(0.1f,-0.1f,0.001f),
+                    new(0.1f, 0.1f,0.001f),
+                    new(float.NaN, 1, 0),
+                    new(0, 0, 0.05f)
                 };
-                var bedTransformRobot = Robot2Unity.inverse * bedTransform;
-                var program = CreatePath(bedTransformRobot * Robot2Unity.inverse, points).ToList();
-                program.Insert(2, "set_digital_out(0,True)");
-                program.Insert(8, "set_digital_out(0,False)");
+                var program = CreatePath(PrintBed, transform, points, 0.3f, 0).ToList();
                 SendProgram(program, "move_test");
             }
 
@@ -158,6 +158,30 @@ public class RobotArm : MonoBehaviour
                     program.Add("set_digital_out(0, False)");
                 }
                 SendProgram(program);
+            }
+
+            if (GUILayout.Button(GCode.name))
+            {
+                var gcode = GCodeParser.ParseString(GCode.text);
+                bool extrusion = false;
+                var path = new List<Vector3>();
+                path.Add(new(float.NaN, 1, 0));
+                foreach (var line in gcode.Lines)
+                {
+                    if (line.Extrusion > 0 && !extrusion)
+                    {
+                        extrusion = true;
+                        path.Add(new(float.NaN, 1, 1));
+                    }
+                    if (line.Extrusion == 0 && extrusion)
+                    {
+                        extrusion = false;
+                        path.Add(new(float.NaN, 1, 0));
+                    }
+                    path.Add(new((float)line.X, (float)line.Y, (float)line.Z));
+                }
+                var program = CreatePath(PrintBed, transform, path.ToArray(), 0.05f, 0);
+                SendProgram(program, GCode.name);
             }
         }
         GUILayout.EndArea();
@@ -183,20 +207,39 @@ public class RobotArm : MonoBehaviour
         urListener.SendCommand(string.Join('\n', list));
     }
 
-    public static string[] CreatePath(Matrix4x4 transform, IEnumerable<Vector3> points, float v = 0.3f, float r = 0.02f)
+    public static string[] CreatePath(Transform bed, Transform robotBase, IEnumerable<Vector3> points, float v = 0.3f, float r = 0.02f)
     {
+        var robotToBed = robotBase.worldToLocalMatrix * bed.localToWorldMatrix;
+        var transform = Robot2Unity.inverse * robotToBed * Robot2Unity;
         string commandl = $"movel(p[{{0}}, {{1}}, {{2}}, {{3}}, {{4}}, {{5}}], a=1.4, v={v.ToString(CultureInfo.InvariantCulture)}, t=0, r={r.ToString(CultureInfo.InvariantCulture)})";
         string command2 = $"movej(p[{{0}}, {{1}}, {{2}}, {{3}}, {{4}}, {{5}}])";
-        var transformedPoints = points.Select(p=>transform.MultiplyPoint(p));
-        var commands = transformedPoints.Select(p => string.Format(CultureInfo.InvariantCulture, commandl, p.x, p.y, p.z, Math.PI, 0, 0)).ToArray();
-        if (commands.Length >= 1)
+        var transformedPoints = points.Select(p => float.IsNaN(p.x) ? p : transform.MultiplyPoint(p));
+        List<string> commands = new List<string>();
+        bool moved = false;
+        foreach (var p in transformedPoints)
         {
-            var first = transformedPoints.First();
-            commands[0] = string.Format(CultureInfo.InvariantCulture, command2, first.x,
-                first.y, first.z, Math.PI, 0, 0);
+            if (float.IsNaN(p.x) && p.y == 1) // Extrution
+            {
+                if(p.z == 0)
+                    commands.Add("set_digital_out(0, False)");
+                else if(p.z == 1)
+                    commands.Add("set_digital_out(0, True)");
+            }
+            else // Move
+            {
+                if (moved)
+                {
+                    commands.Add(string.Format(CultureInfo.InvariantCulture, commandl, p.x, p.y, p.z, Math.PI, 0, 0));
+                }
+                else
+                {
+                    moved = true;
+                    commands.Add(string.Format(CultureInfo.InvariantCulture, command2, p.x, p.y, p.z, Math.PI, 0, 0));
+                }
+            }
         }
 
-        return commands;
+        return commands.ToArray();
     }
 }
 
