@@ -178,10 +178,14 @@ public class RobotArm : MonoBehaviour
                         extrusion = false;
                         path.Add(new(float.NaN, 1, 0));
                     }
-                    path.Add(new((float)line.X, (float)line.Y, (float)line.Z));
+
+                    var lastPoint = path.LastOrDefault(v => float.IsNormal(v.magnitude));
+                    var currentPoint = new Vector3((float)line.X / 1000f, (float)line.Y / 1000f, (float)line.Z / 1000f);
+                    if(Vector3.Distance(lastPoint, currentPoint) > 0.0001f)
+                        path.Add(currentPoint);
                 }
                 var program = CreatePath(PrintBed, transform, path.ToArray(), 0.05f, 0);
-                SendProgram(program, GCode.name);
+                SendProgram(program, "gcode");
             }
         }
         GUILayout.EndArea();
