@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Collections.Generic;
 using System;
+using UnityEngine;
 
 public class GCodeLine
 {
@@ -57,7 +58,14 @@ public class GCodeLine
         GCodeChar = text[0];
         int gIndEnd = text.IndexOfAny(whitespaces);
         if (gIndEnd < 0) gIndEnd = text.Length;
-        GCodeNum = byte.Parse(text.Substring(1, gIndEnd - 1), CultureInfo.InvariantCulture);
+        try
+        {
+            GCodeNum = byte.Parse(text.Substring(1, gIndEnd - 1), CultureInfo.InvariantCulture);
+        }
+        catch (Exception e)
+        {
+            Debug.Break();
+        }
 
         string[] parameterStrings = text.Substring(gIndEnd)
             .Split(whitespaces, StringSplitOptions.RemoveEmptyEntries);
@@ -124,7 +132,8 @@ public class GCodeLine
             }
             else
             {
-                throw new Exception($"Unknown G-Step: {Line}");
+                Debug.LogWarning($"Unknown G-Step: {Line}");
+                //throw new Exception($"Unknown G-Step: {Line}");
             }
         }
         else if (GCodeChar == 'M')
@@ -170,20 +179,30 @@ public class GCodeLine
             {
                 // Ignore
             }
+            else if (GCodeNum == 204) // Set Starting Speed
+            {
+                // Ignore
+            }
             else
             {
-                throw new Exception($"Unknown M-Step: {Line}");
+                Debug.LogWarning($"Unknown M-Step: {Line}");
+                //throw new Exception($"Unknown M-Step: {Line}");
             }
+        }
+        else if(GCodeChar == 'T')
+        {
+            // Ignore
         }
         else
         {
+            Debug.LogWarning($"Unknown Step-Type: {Line}");
             throw new Exception($"Unknown Step-Type: {Line}");
         }
     }
 
     public override string ToString()
     {
-        return $"X: {X}, Y:{Y}, Z:{Z}, E:{Extrusion}, F:{FeedRate}, Hotend:{HotendTemperature}°C, Bed:{BedTemperature}°C";
+        return $"X: {X}, Y:{Y}, Z:{Z}, E:{Extrusion}, F:{FeedRate}, Hotend:{HotendTemperature}ï¿½C, Bed:{BedTemperature}ï¿½C";
     }
 
     public class EmptyLineException : Exception

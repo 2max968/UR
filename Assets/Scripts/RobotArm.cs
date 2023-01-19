@@ -115,7 +115,7 @@ public class RobotArm : MonoBehaviour
         }
         else
         {
-            if (GUILayout.Button("Diconnect"))
+            if (GUILayout.Button("Disconnect"))
             {
                 urListener.Close();
             }
