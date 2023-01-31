@@ -1,3 +1,5 @@
+// Skript zum Steuern einer fliegenden Kamera
+
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -18,11 +20,13 @@ public class CameraControl : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        // Mauscursor sperren, wenn Mausbutton gedrückt ist
         if (Input.GetMouseButtonDown(CAMMOVE_BUTTON))
             Cursor.lockState = CursorLockMode.Locked;
         if (Input.GetMouseButtonUp(CAMMOVE_BUTTON))
             Cursor.lockState = CursorLockMode.None;
         
+        // Camera rotieren, wenn Maustaste gedrückt ist und Maus bewegt wird
         if (Input.GetMouseButton(CAMMOVE_BUTTON))
         {
             x += Input.GetAxis("Mouse X") * 2;
@@ -33,6 +37,7 @@ public class CameraControl : MonoBehaviour
             transform.Rotate(Vector3.left, y, Space.Self);
         }
 
+        // Kamera mit WASD im Raum bewegen
         float moveSpeed = 0.3f;
         if (Input.GetKey(KeyCode.LeftShift))
             moveSpeed = 1;

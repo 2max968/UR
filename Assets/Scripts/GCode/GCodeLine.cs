@@ -31,9 +31,12 @@ public class GCodeLine
 
     public GCodeLine(GCodeLine? lastLine, string text)
     {
+        // Bei Leeren oder Null Strings wird ein Fehler geworfen
         if (string.IsNullOrWhiteSpace(text))
             throw new EmptyLineException();
 
+        // Eigenschaften der letzten Zeile in die aktuelle Zeile kopieren, 
+        // damit nur die explizit angegebenen Werte geändert werden
         Line = text;
         X = lastLine?.X ?? 0;
         Y = lastLine?.Y ?? 0;
@@ -48,6 +51,7 @@ public class GCodeLine
         WaitForBedTemperatur = false;
         Parameters = new Dictionary<char, double>();
 
+        // Kommentare aus der Zeile entfernen, danach werden Whitespaces entfernt
         int commentStart = text.IndexOf(';');
         if (commentStart >= 0)
             text = text.Substring(0, commentStart);
@@ -55,7 +59,9 @@ public class GCodeLine
         if (string.IsNullOrWhiteSpace(text))
             throw new EmptyLineException();
 
+        // Erstes Zeichen der Zeile extrahieren, um den GCode zu bestimmen
         GCodeChar = text[0];
+        // Text bis zum ersten Trennzeichen extrahieren, um die GCode Nummer zu bestimmen
         int gIndEnd = text.IndexOfAny(whitespaces);
         if (gIndEnd < 0) gIndEnd = text.Length;
         try
@@ -67,6 +73,7 @@ public class GCodeLine
             Debug.Break();
         }
 
+        // Restliche Zeile in einzelne Wörter aufteilen und diese dann in Parameter extrahieren
         string[] parameterStrings = text.Substring(gIndEnd)
             .Split(whitespaces, StringSplitOptions.RemoveEmptyEntries);
         foreach (var p in parameterStrings)
@@ -74,6 +81,7 @@ public class GCodeLine
             Parameters.Add(p[0], double.Parse(p.Substring(1), CultureInfo.InvariantCulture));
         }
 
+        // Alle G-Befehle behandeln
         if (GCodeChar == 'G')
         {
             if (GCodeNum == 0 || GCodeNum == 1) // Linear Movement
@@ -136,6 +144,7 @@ public class GCodeLine
                 //throw new Exception($"Unknown G-Step: {Line}");
             }
         }
+        // Alle M-Befehle behandeln
         else if (GCodeChar == 'M')
         {
             if (GCodeNum == 104) // Set Hotend Temperature, don't wait
@@ -156,14 +165,14 @@ public class GCodeLine
                 BedTemperature = Parameters['S'];
                 WaitForBedTemperatur = true;
             }
-            else if (GCodeNum == 106)
+            else if (GCodeNum == 106) // Set Fan Speed
             {
                 if (Parameters.ContainsKey('S'))
                     FanSpeed = Parameters['S'] / 255.0;
                 else
                     FanSpeed = 1;
             }
-            else if (GCodeNum == 107)
+            else if (GCodeNum == 107) // Turn off Fan
             {
                 FanSpeed = 0;
             }
@@ -189,6 +198,7 @@ public class GCodeLine
                 //throw new Exception($"Unknown M-Step: {Line}");
             }
         }
+        // Alle T-Befehle ignorieren
         else if(GCodeChar == 'T')
         {
             // Ignore

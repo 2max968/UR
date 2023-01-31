@@ -1,3 +1,5 @@
+// Rotation der Lüfter erzeugen
+
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;

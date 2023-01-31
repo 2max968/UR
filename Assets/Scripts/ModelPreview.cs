@@ -1,12 +1,17 @@
+// Dieses Skript ist zum Testen des G-Code parsers und der Erzeugung von Extrusionssträngen
+// Eine G-Code Dateio wird eingelesen und aus den Positionen des G-Codes werden Extrusionsstränge erzeugt
+
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
+using System.Linq;
+using Unity.VisualScripting;
 
 public class ModelPreview : MonoBehaviour
 {
     public Material Material;
-    FileInfo[] files;
+    List<FileInfo> files;
     Matrix4x4 file2world
         = Matrix4x4.Scale(new Vector3(.01f, .01f, .01f))
         * new Matrix4x4(
@@ -48,13 +53,8 @@ public class ModelPreview : MonoBehaviour
                     if(extruding)
                     {
                         var obj = new GameObject();
-                        //var lineR = obj.AddComponent<LineRenderer>();
-                        //lineR.positionCount = points.Count;
-                        //lineR.SetPositions(points.ToArray());
                         obj.transform.name = $"Chunk {counter++}";
                         obj.transform.parent = transform;
-                        //lineR.widthMultiplier = 0.01f;
-                        //lineR.material = Material;
                         var wurst = Util.CreateWurst(points, 0.001f);
                         obj.AddComponent<MeshFilter>().mesh = wurst;
                         obj.AddComponent<MeshRenderer>().material = Material;
@@ -66,17 +66,13 @@ public class ModelPreview : MonoBehaviour
                 lastLine = line;
             }
         }
-
-        /*var go = new GameObject();
-        var mesh = Util.CreateSphere(1);
-        go.AddComponent<MeshFilter>().mesh = mesh;
-        go.AddComponent<MeshRenderer>().material = Material;*/
     }
 
     private void Start()
     {
         var dir = new DirectoryInfo(".");
-        files = dir.GetFiles("*.gcode", SearchOption.AllDirectories);
+        files = dir.GetFiles("*.gcode", SearchOption.AllDirectories).ToList();
+        files.AddRange(dir.GetFiles("*.gcode.txt", SearchOption.AllDirectories));
     }
 
     private void OnGUI()

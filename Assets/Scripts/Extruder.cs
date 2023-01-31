@@ -1,3 +1,7 @@
+// Der Extruder erzeugt aus der Bewegung des TCPs einen Materialstrang.
+// Sobald die Extrusion deaktiviert wird, erzeugt der Extruder ein neues Objekt,
+// an welches er den aktuellen Extrusionsstrang anhängt.
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,7 +11,6 @@ public class Extruder : MonoBehaviour
 {
     public RobotArm Robot;
     private List<Vector3> trace;
-    //private LineRenderer line;
     private MeshRenderer wurstR;
     private MeshFilter wurstF;
     private Transform trailObj;
@@ -15,46 +18,36 @@ public class Extruder : MonoBehaviour
 
     private bool extruding = false;
 
-    // Start is called before the first frame update
     void Start()
     {
         trace = new List<Vector3>();
         trailObj = transform.Find("Trail");
         wurstR = trailObj.GetComponent<MeshRenderer>();
         wurstF = trailObj.GetComponent<MeshFilter>();
-        //line = GetComponentInChildren<LineRenderer>();
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
     }
 
     private void LateUpdate()
     {
+        // Position und Rotation des Extruders an den TCP des Roboters anpassen
         transform.position = Robot.TCP.position;
         transform.rotation = Robot.TCP.rotation;
 
+        // Abfragen, ob der erste digidale Ausgang des Roboters aktiviert ist
         if (Robot.Outputs[0])
         {
             extruding = true;
             if (transform.position != tmpPosition)
             {
+                // Position des Extruders in die Liste der Punkte aufnehmen und eine Wurst aus diesen Punkten erzeugen
                 trace.Add(transform.position);
                 if (trace.Count >= 2)
                 {
                     wurstR.enabled = true;
                     wurstF.mesh = Util.CreateWurst(trace, 0.001f);
-                    //line.enabled = true;
-                    //line.positionCount = trace.Count;
-                    //for (int i = 0; i < trace.Count; i++)
-                    //    line.SetPosition(i, trace[i]);
                 }
                 else
                 {
                     wurstR.enabled = false;
-                    //line.enabled = false;
                 }
             }
         }
@@ -62,18 +55,15 @@ public class Extruder : MonoBehaviour
         {
             if (extruding)
             {
+                
+                // Wenn die Extrusion deaktiviert wird, wird eine neues leeres Objekt erzeugt,
+                // an dieses Objekt wird die Wurst angehängt
                 trace.Add(transform.position);
                 var empty = new GameObject();
                 empty.transform.name = "Extruded Chunk";
-                /*var lr = empty.AddComponent<LineRenderer>();
-                var chunk = empty.AddComponent<ExtrudedChunk>();
-                lr.material = line.material;
-                lr.widthMultiplier = line.widthMultiplier;
-                chunk.Trace = trace.ToArray();*/
                 empty.AddComponent<MeshRenderer>().material = wurstR.material;
                 empty.AddComponent<MeshFilter>().mesh = Util.CreateWurst(trace, 0.001f);
             }
-            //line.enabled = false;
             wurstR.enabled = false;
             trace.Clear();
             extruding = false;
@@ -82,6 +72,5 @@ public class Extruder : MonoBehaviour
 
         trailObj.position = new Vector3(0, 0, 0);
         trailObj.rotation = Quaternion.identity;
-        //trailObj.localScale = trailObj.parent.lossyScale.normalize;
     }
 }

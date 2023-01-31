@@ -5,6 +5,7 @@ namespace Assets.Scripts
 {
     internal static class URUtil
     {
+        // Funktion zum Konvertieren eines Byte-Arrays in ein Struct
         public static T ArrayToStruct<T>(byte[] array, int offset) where T : struct
         {
             int length = Marshal.SizeOf<T>();

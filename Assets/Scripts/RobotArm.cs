@@ -28,13 +28,13 @@ public class RobotArm : MonoBehaviour
 
     public TextAsset GCode;
 
+    // Transformationsmatrix, die das Roboterkoordinatensystem in das Unity-Koordinatensystem umwandelt
     public static readonly Matrix4x4 Robot2Unity = new Matrix4x4(
         new Vector4(1, 0, 0, 0),
         new Vector4(0, 0, 1, 0),
         new Vector4(0, 1, 0, 0),
         new Vector4(0, 0, 0, 1));
 
-    // Start is called before the first frame update
     void Start()
     {
         urListener = new URPackageListener();
@@ -49,9 +49,9 @@ public class RobotArm : MonoBehaviour
         urListener?.Close();
     }
 
-    // Update is called once per frame
     void Update()
     {
+        // Alle Gelenkwinkel auf die Gelenkobjekte übertragen
         for(int i = 0; i < Transforms.Length; i++)
         {
             if(urListener != null && urListener.Connected)
@@ -60,16 +60,10 @@ public class RobotArm : MonoBehaviour
             Transforms[i].localRotation = startRotations[i];
             Transforms[i].Rotate(axisTovector3(RotationAxis[i]), Angles[i] + RotationOffsets[i], Space.Self);
         }
+        
         if(urListener != null && urListener.Connected)
         {
-            /*var tcpOffset = new Vector3((float)urListener.CartesianInfo.TCPOffsetX,
-                (float)urListener.CartesianInfo.TCPOffsetY,
-                -(float)urListener.CartesianInfo.TCPOffsetZ);
-            var tcpRotation = Quaternion.Euler((float)urListener.CartesianInfo.TCPOffsetRx * 180f / Mathf.PI,
-                (float)urListener.CartesianInfo.TCPOffsetRy * 180f / Mathf.PI,
-                (float)urListener.CartesianInfo.TCPOffsetRz * 180f / Mathf.PI);
-            TCP.localPosition = tcpOffset * 1000;
-            TCP.localRotation = tcpRotation;*/
+            // TCP Position und Rotation auslesen
             Vector4 cartPosition = Robot2Unity * new Vector4((float)urListener.CartesianInfo.X, 
                 (float)urListener.CartesianInfo.Y,
                 (float)urListener.CartesianInfo.Z, 1);
@@ -89,6 +83,7 @@ public class RobotArm : MonoBehaviour
             TCPRotation = Quaternion.Euler((float)urListener.CartesianInfo.Rx, (float)urListener.CartesianInfo.Ry,
                 (float)urListener.CartesianInfo.Rz);
 
+            // Digitale Ausgänge in Bool-Array übertragen
             for (int i = 0; i < Outputs.Length; i++)
             {
                 int bits = urListener.MasterboardData.digitalOutputBits;
@@ -99,11 +94,13 @@ public class RobotArm : MonoBehaviour
         }
     }
 
+    // In der OnGUI Methode sind alle UI Elemente uund deren Funktionalitäten vorhanden.
     private void OnGUI()
     {
         GUILayout.BeginArea(new Rect(10, 10, 200, 400));
         if (!urListener.Connected)
         {
+            // Solange kein Roboter verbunden ist, wird eine Eingabefeld für die IP-Adresse angezeigt
             GUILayout.BeginHorizontal();
             ipInput = GUILayout.TextField(ipInput);
             if (GUILayout.Button("Connect"))
@@ -115,6 +112,7 @@ public class RobotArm : MonoBehaviour
         }
         else
         {
+            // Wenn ein Roboter verbunden ist, dann werden Schaltflächen für die Roboterfunktionalitäten angezeigt
             if (GUILayout.Button("Disconnect"))
             {
                 urListener.Close();
@@ -129,37 +127,9 @@ public class RobotArm : MonoBehaviour
                 string cmd = $"movej(p[{homePointRobot.x.ToString(CultureInfo.InvariantCulture)}, {homePointRobot.y.ToString(CultureInfo.InvariantCulture)}, {homePointRobot.z.ToString(CultureInfo.InvariantCulture)}, 3.14145, 0, 0])";
                 SendProgram(new []{cmd}, "home");
             }
-            
-            if(GUILayout.Button("Move Test"))
-            {
-                var points = new Vector3[]
-                {
-                    new(0, 0, 0.05f),
-                    new(0.1f, 0.1f,0.001f),
-                    new(float.NaN, 1,1),
-                    new(-0.1f,0.1f,0.001f),
-                    new(-0.1f,-0.1f,0.001f),
-                    new(0.1f,-0.1f,0.001f),
-                    new(0.1f, 0.1f,0.001f),
-                    new(float.NaN, 1, 0),
-                    new(0, 0, 0.05f)
-                };
-                var program = CreatePath(PrintBed, transform, points, 0.3f, 0).ToList();
-                SendProgram(program, "move_test");
-            }
 
-            if (GUILayout.Button("Blink"))
-            {
-                List<string> program = new List<string>();
-                for (int i = 0; i < 10; i++)
-                {
-                    program.Add("set_digital_out(0, True)");
-                    program.Add("sleep(0.5)");
-                    program.Add("set_digital_out(0, False)");
-                }
-                SendProgram(program);
-            }
-
+            // Mit dieser Schaltfläche lässt sich die im Editor ausgewählte G-Code Datei in ein
+            // Roboterscript umwandeln und auf den Roboter übertragen
             if (GUILayout.Button(GCode.name))
             {
                 var gcode = GCodeParser.ParseString(GCode.text);
@@ -168,6 +138,8 @@ public class RobotArm : MonoBehaviour
                 path.Add(new(float.NaN, 1, 0));
                 foreach (var line in gcode.Lines)
                 {
+                    // Da die Ausgabe nur aus einer Liste von Vektoren besteht, wird das aktivieren und deaktivieren
+                    // des Extruders als der Spezielle Vektor (X: NaN, Y: 1, Z: Zustand) kodiert.
                     if (line.Extrusion > 0 && !extrusion)
                     {
                         extrusion = true;
@@ -211,13 +183,19 @@ public class RobotArm : MonoBehaviour
         urListener.SendCommand(string.Join('\n', list));
     }
 
+    // Funktion zum Erzeugen eines Roboterskripts aus einer Liste von Punkten
     public static string[] CreatePath(Transform bed, Transform robotBase, IEnumerable<Vector3> points, float v = 0.3f, float r = 0.02f)
     {
+        // Die Punkte werden vom Bed-Koordinatensystem in das Roboterkoordinatensystem konvertiert
         var robotToBed = robotBase.worldToLocalMatrix * bed.localToWorldMatrix;
         var transform = Robot2Unity.inverse * robotToBed * Robot2Unity;
+        var transformedPoints = points.Select(p => float.IsNaN(p.x) ? p : transform.MultiplyPoint(p));
+        
+        // Die beiden Bewegungsbefehle werden als Formatvorlage definiert
         string commandl = $"movel(p[{{0}}, {{1}}, {{2}}, {{3}}, {{4}}, {{5}}], a=1.4, v={v.ToString(CultureInfo.InvariantCulture)}, t=0, r={r.ToString(CultureInfo.InvariantCulture)})";
         string command2 = $"movej(p[{{0}}, {{1}}, {{2}}, {{3}}, {{4}}, {{5}}])";
-        var transformedPoints = points.Select(p => float.IsNaN(p.x) ? p : transform.MultiplyPoint(p));
+        
+        // Die Punkte werden in eine Liste von Textbefehlen umgewandelt
         List<string> commands = new List<string>();
         bool moved = false;
         foreach (var p in transformedPoints)
